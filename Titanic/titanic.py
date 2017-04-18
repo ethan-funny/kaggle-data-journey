@@ -114,6 +114,13 @@ class Titanic(object):
 
 
         # concat
+        self.X_train = pd.concat([self.train[['Sex', 'IsAlone']], pclass_dummies_train,
+                                  person_dummies_train, fare_dummies_train, embarked_dummies_train],
+                                 axis=1)
+        self.Y_train = self.train['Survived']
+        self.X_test = pd.concat([self.test[['Sex', 'IsAlone']], pclass_dummies_test,
+                                 person_dummies_test, fare_dummies_test,
+                                 embarked_dummies_test], axis=1)
 
 
         # feature selection
