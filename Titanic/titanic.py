@@ -127,7 +127,16 @@ class Titanic(object):
 
 
     def train(self):
-        pass
+        logreg = LogisticRegression(C=1.0, penalty='l1', tol=1e-6)
+        logreg.fit(self.X_train, self.Y_train)
+        self.Y_pred = logreg.predict(self.X_test)
+        logreg.score(self.X_train, self.Y_train)
+
+        coeff_df = pd.DataFrame({
+            'Features': self.X_train.columns,
+            'Coefficient': pd.Series(logreg.coef_[0])
+        })
+
 
     def predict(self):
         pass
