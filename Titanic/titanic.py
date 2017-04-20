@@ -139,7 +139,10 @@ class Titanic(object):
 
 
     def predict(self):
-        pass
+        result = pd.DataFrame({
+            'PassengerId': self.test['PassengerId'],
+            'Survived': self.Y_pred
+        })
 
     def evaluate(self):
         pass
