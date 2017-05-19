@@ -13,6 +13,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.ensemble import VotingClassifier
 from sklearn.ensemble import BaggingRegressor
+from sklearn.ensemble import GradientBoostingClassifier
 
 from sklearn.model_selection import cross_val_score
 from sklearn.model_selection import train_test_split
@@ -55,11 +56,6 @@ class Titanic(object):
         self.train["Age"] = self.train["Age"].astype(int)
         self.test["Age"] = self.test["Age"].astype(int)
 
-        # drop unnecessary columns
-        # self.train = self.train.drop(['PassengerId', 'Name', 'Ticket', 'Cabin'], axis=1)
-        # self.test = self.test.drop(['Name', 'Ticket', 'Cabin'], axis=1)
-
-
     def feature_engineering(self):
         """
         feature engineering
@@ -68,13 +64,9 @@ class Titanic(object):
         def get_person(age):
             person = ''
 
-            if age <= 16:
+            if age < 18:
                 person = 'Child'
-            elif age <= 32:
-                person = 'Young'
-            elif age <= 48:
-                person = 'Middle'
-            elif age <= 64:
+            elif age <= 50:
                 person = 'Mature'
             else:
                 person = 'Old'
@@ -83,16 +75,15 @@ class Titanic(object):
 
         def get_fare_level(fare):
             level = ''
-            if fare <= 7.91:
-                level = 'lower'
-            elif fare <= 14.454:
+            if fare <= 14.454:
                 level = 'low'
-            elif fare <= 31:
+            elif fare <= 25:
                 level = 'middle'
             else:
                 level = 'high'
 
             return level
+
 
         # feature: Pclass
         pclass_dummies_train = pd.get_dummies(self.train['Pclass'], prefix='Pclass')
@@ -141,139 +132,77 @@ class Titanic(object):
 
         # split_train, split_validation = train_test_split(train, test_size = 0.3, random_state = 0)
 
+    def split_data(self, train_data):
+        # split data to train and test
+        split_train, split_cv = train_test_split(train_data, test_size=0.2,
+                                                 random_state=0)
 
-        # feature selection
+        x_train = split_train.as_matrix()[:, 1:]
+        y_train = split_train.as_matrix()[:, 0]
+        x_test = split_cv.as_matrix()[:, 1:]
+        y_test = split_cv.as_matrix()[:, 0]
+
 
     @staticmethod
-    def model_train(x_train, y_train):
-        logreg = LogisticRegression(C=1.0, penalty='l1', tol=1e-6)
-        logreg.fit(x_train, y_train)
-        logreg.score()
-
-        # coeff_df = pd.DataFrame({
-        #     'Features': self.X_train.columns,
-        #     'Coefficient': pd.Series(self.logreg.coef_[0])
-        # })
-        #
-        # print(coeff_df)
-        return logreg
-
-
-    def predict(self):
-        self.Y_pred = self.logreg.predict(self.X_test)
-
-    @staticmethod
-    def lr(x_train, y_train, x_test, y_test, features):
+    def lr(x_train, y_train, x_test, y_test, columns):
+        # train and predict
         logreg = LogisticRegression(C=1.0, penalty='l1', tol=1e-6)
         logreg.fit(x_train, y_train)
 
         y_pred = logreg.predict(x_test)
-        coeff = logreg.coef_[0]
 
-        cmatrix = confusion_matrix(y_test, y_pred)
-        auc = roc_auc_score(y_test, y_pred)
-        recall = recall_score(y_test, y_pred)
-        accuracy = accuracy_score(y_test, y_pred)
+        # evaluate
+        coeff = logreg.coef_[0]
 
         coeff_df = pd.DataFrame({
             'Coefficient': pd.Series(coeff),
-            'Features': features
+            'Features': columns
         })
-        score_df = pd.DataFrame(
-            [[auc, accuracy, recall]],
-            columns=['auc', 'accuracy', 'recall']
-        )
-        cmatrix_df = pd.DataFrame(
-            cmatrix,
-            columns=['0(predict)', '1(predict)'],
-            index=['0(actual)', '1(actual)']
-        )
 
-        return dict(model=logreg, y_pred=y_pred, coeff=coeff_df, cmatrix=cmatrix_df, score=score_df)
+        result = Titanic.evaluate(y_test, y_pred)
 
-    def lr_experiment(self, train_data):
+        result.update({'model': logreg, 'y_pred': y_pred, 'coeff': coeff_df})
 
-        split_train, split_cv = train_test_split(train_data, test_size=0.3,
-                                                 random_state=0)
+        return result
 
-        result = self.lr(
-            split_train.as_matrix()[:, 1:],
-            split_train.as_matrix()[:, 0],
-            split_cv.as_matrix()[:, 1:],
-            split_cv.as_matrix()[:, 0],
-            split_cv.columns[1:]
-        )
-
-        # result_ensemble = self.ensemble(
-        #     split_train.as_matrix()[:, 1:],
-        #     split_train.as_matrix()[:, 0],
-        #     split_cv.as_matrix()[:, 1:],
-        #     split_cv.as_matrix()[:, 0]
-        # )
-
-        print('====score====')
-        display(result['score'])
-
-        # print('====ensemble score====')
-        # display(result_ensemble['score'])
-
-        print('===confusion matrix====')
-        display(result['cmatrix'])
-
-        # print('===ensemble confusion matrix====')
-        # display(result_ensemble['cmatrix'])
-
-        print('=====coeff====')
-        display(result['coeff'].transpose())
-
-        return result,
-
-
-    def evaluate(self):
-        print("score:{}".format(self.logreg.score(self.X_train, self.Y_train)))
-
-
-    @staticmethod
-    def ensemble(x_train, y_train, x_test, y_test):
-        clf = LogisticRegression(C=1.0, penalty='l1', tol=1e-6)
-        bagging_clf = BaggingRegressor(clf, n_estimators=20, max_samples=0.8,
-                                       max_features=1.0, bootstrap=True,
-                                       bootstrap_features=False, n_jobs=-1)
-        bagging_clf.fit(x_train, y_train)
-
-        y_pred_f = bagging_clf.predict(x_test)
-
-        y_pred = y_pred_f.astype(np.int32)
-
-        cmatrix = confusion_matrix(y_test, y_pred)
-        auc = roc_auc_score(y_test, y_pred)
-        recall = recall_score(y_test, y_pred)
-        accuracy = accuracy_score(y_test, y_pred)
-
-        score_df = pd.DataFrame(
-            [[auc, accuracy, recall]],
-            columns=['auc', 'accuracy', 'recall']
-        )
-        cmatrix_df = pd.DataFrame(
-            cmatrix,
-            columns=['0(predict)', '1(predict)'],
-            index=['0(actual)', '1(actual)']
-        )
-
-        return dict(model=bagging_clf, y_pred=y_pred, cmatrix=cmatrix_df, score=score_df)
 
     @staticmethod
     def rf(x_train, y_train, x_test, y_test):
-        random_forest = RandomForestClassifier(n_estimators=100)
-
+        # train and predict
+        random_forest = RandomForestClassifier(n_estimators=1000)
         random_forest.fit(x_train, y_train)
 
         y_pred = random_forest.predict(x_test)
 
-        cmatrix = confusion_matrix(y_test, y_pred)
-        auc = roc_auc_score(y_test, y_pred)
-        recall = recall_score(y_test, y_pred)
-        accuracy = accuracy_score(y_test, y_pred)
+        # evaluate
+        result = Titanic.evaluate(y_test, y_pred)
+
+        result.update({'model': random_forest, 'y_pred': y_pred})
+
+        return result
+
+    @staticmethod
+    def gbdt(x_train, y_train, x_test, y_test):
+
+        # train and predict
+        GBDT = GradientBoostingClassifier(n_estimators=1000)
+        GBDT.fit(x_train, y_train)
+
+        y_pred = GBDT.predict(x_test)
+
+        # evaluate
+        result = Titanic.evaluate(y_test, y_pred)
+
+        result.update({'model': GBDT, 'y_pred': y_pred})
+
+        return result
+
+    @staticmethod
+    def evaluate(y_true, y_pred):
+        cmatrix = confusion_matrix(y_true, y_pred)
+        auc = roc_auc_score(y_true, y_pred)
+        recall = recall_score(y_true, y_pred)
+        accuracy = accuracy_score(y_true, y_pred)
 
         score_df = pd.DataFrame(
             [[auc, accuracy, recall]],
@@ -285,8 +214,25 @@ class Titanic(object):
             index=['0(actual)', '1(actual)']
         )
 
-        return dict(model=random_forest, y_pred=y_pred, cmatrix=cmatrix_df,
-                    score=score_df)
+        print('====score====')
+        display(score_df)
+
+        print('====confusion matrix====')
+        display(cmatrix_df)
+
+        return dict(score=score_df, cmatrix=cmatrix_df)
+
+    def ensemble(self, y_lr, y_rf, y_gbdt, y_true):
+
+        res = pd.DataFrame({
+            'lr': y_lr,
+            'rf': y_rf,
+            'gbdt': y_gbdt,
+        })
+
+        res.insert(res.shape[1], 'predict', res.mode(axis=1))
+
+        res.insert(res.shape[1], 'actual', y_true)
 
 
 
@@ -341,3 +287,5 @@ if __name__ == '__main__':
 
 # http://blog.csdn.net/han_xiaoyang/article/details/49797143
 # http://mars.run/2015/11/Machine%20learning%20kaggle%20titanic-0.8/
+
+# # model.predict_proba(split_cv.as_matrix()[:, 1:])
