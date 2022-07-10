@@ -284,6 +284,7 @@ if __name__ == '__main__':
 
 # https://www.kaggle.com/arthurtok/titanic/introduction-to-ensembling-stacking-in-python
 # http://localhost:6768/notebooks/A-Journey-through-Titanic.ipynb
+# [kaggle泰坦尼克号数据集——数据分析全流程 - 知乎](https://zhuanlan.zhihu.com/p/342552186)
 
 # http://blog.csdn.net/han_xiaoyang/article/details/49797143
 # http://mars.run/2015/11/Machine%20learning%20kaggle%20titanic-0.8/
